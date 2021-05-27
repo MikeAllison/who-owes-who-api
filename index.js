@@ -26,7 +26,7 @@ app.get('/cards', async (req, res) => {
       cards.push({ id: card.id, data: card.data() });
     });
 
-    res.status(200).json(cards);
+    res.status(200).json({ cards });
   } catch (err) {
     console.log(err);
     req.status(500).send({ error: 'There was a problem with the request' });
@@ -46,7 +46,7 @@ app.get('/cards/:cardId/transactions', async (req, res) => {
       transactions.push({ id: transaction.id, data: transaction.data() });
     });
 
-    res.status(200).json(transactions);
+    res.status(200).json({ transactions });
   } catch (err) {
     console.log(err);
     req.status(500).send({ error: 'There was a problem with the request' });
