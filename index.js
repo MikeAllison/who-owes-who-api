@@ -1,9 +1,10 @@
 const admin = require('firebase-admin');
 const serviceAccount = require('./creds/who-owes-who-314822-d8d337365ea0.json');
 const express = require('express');
+const cors = require('cors');
 
 const app = express();
-const port = 3000;
+app.use(cors());
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -53,6 +54,6 @@ app.get('/cards/:cardId/transactions', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Listening at http://localhost:${port}`);
+app.listen(3000, () => {
+  console.log(`Listening at http://localhost:3000`);
 });
