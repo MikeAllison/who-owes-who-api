@@ -34,7 +34,7 @@ app.get('/cards', async (req, res) => {
     const cards = [];
 
     cardQuerySnapshot.forEach(card => {
-      cards.push({ id: card.id, data: card.data() });
+      cards.push({ id: card.id, cardholder: card.data().cardholder });
     });
 
     res.status(200).json({ cards });
@@ -54,10 +54,34 @@ app.get('/cards/:cardId/transactions', async (req, res) => {
     const transactions = [];
 
     transactionsQuerySnapshot.forEach(transaction => {
-      transactions.push({ id: transaction.id, data: transaction.data() });
+      transactions.push({
+        id: transaction.id,
+        merchant: transaction.data().merchant,
+        amount: transaction.data().amount,
+        date: transaction.data().date,
+        archived: transaction.data().archived
+      });
     });
 
     res.status(200).json({ transactions });
+  } catch (err) {
+    console.log(err);
+    req.status(500).send({ error: 'There was a problem with the request' });
+  }
+});
+
+const merchantsRef = db.collection('merchants');
+
+app.get('/merchants', async (req, res) => {
+  try {
+    const merchantQuerySnapshot = await merchantsRef.get();
+    const merchants = [];
+
+    merchantQuerySnapshot.forEach(merchant => {
+      merchants.push({ id: merchant.id, name: merchant.data().name });
+    });
+
+    res.status(200).json({ merchants });
   } catch (err) {
     console.log(err);
     req.status(500).send({ error: 'There was a problem with the request' });
