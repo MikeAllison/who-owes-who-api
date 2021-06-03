@@ -1,18 +1,23 @@
 const admin = require('firebase-admin');
-//const serviceAccount = require('./creds/who-owes-who-314822-d8d337365ea0.json');
 const express = require('express');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 app.use(cors());
 
 admin.initializeApp({
-  credential: admin.credential.cert(
-    JSON.parse(
-      Buffer.from(process.env.FIRESTORE_CONFIG, 'base64').toString('ascii')
-    )
-  )
+  credential: admin.credential.cert({
+    type: process.env.GOOGLE_ACCOUNT_TYPE,
+    project_id: process.env.GOOGLE_PROJECT_ID,
+    private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+    private_key: process.env.GOOGLE_PRIVATE_KEY,
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    auth_uri: process.env.GOOGLE_AUTH_URI,
+    token_uri: process.env.GOOGLE_TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_X509_CERT_URL,
+    client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL
+  })
 });
 const db = admin.firestore();
 
@@ -59,6 +64,6 @@ app.get('/cards/:cardId/transactions', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Listening at http://localhost:3000`);
+app.listen(process.env.PORT, () => {
+  console.log(`Listening on port ${process.env.PORT}`);
 });
