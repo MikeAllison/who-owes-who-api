@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-const serviceAccount = require('./creds/who-owes-who-314822-d8d337365ea0.json');
+//const serviceAccount = require('./creds/who-owes-who-314822-d8d337365ea0.json');
 const express = require('express');
 const cors = require('cors');
 
@@ -9,7 +9,7 @@ app.use(cors());
 admin.initializeApp({
   credential: admin.credential.cert(
     JSON.parse(
-      Buffer.from(process.env.FIREBASE_CONFIG, 'base64').toString('ascii')
+      Buffer.from(process.env.FIRESTORE_CONFIG, 'base64').toString('ascii')
     )
   )
 });
