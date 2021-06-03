@@ -7,7 +7,11 @@ const app = express();
 app.use(cors());
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(
+    JSON.parse(
+      Buffer.from(process.env.FIREBASE_CONFIG, 'base64').toString('ascii')
+    )
+  )
 });
 const db = admin.firestore();
 
