@@ -58,7 +58,7 @@ app.get('/cards/:cardId/transactions', async (req, res) => {
         id: transaction.id,
         merchant: transaction.data().merchant,
         amount: transaction.data().amount,
-        date: transaction.data().date,
+        date: transaction.data().date.toDate(),
         archived: transaction.data().archived
       });
     });
