@@ -44,32 +44,6 @@ app.get('/cards', async (req, res) => {
   }
 });
 
-app.get('/cards/:cardId/transactions', async (req, res) => {
-  try {
-    const transactionsRef = cardsRef
-      .doc(req.params.cardId)
-      .collection('transactions');
-
-    const transactionsQuerySnapshot = await transactionsRef.get();
-    const transactions = [];
-
-    transactionsQuerySnapshot.forEach(transaction => {
-      transactions.push({
-        id: transaction.id,
-        merchant: transaction.data().merchant,
-        amount: transaction.data().amount,
-        date: transaction.data().date.toDate(),
-        archived: transaction.data().archived
-      });
-    });
-
-    res.status(200).json({ transactions });
-  } catch (err) {
-    console.log(err);
-    req.status(500).send({ error: 'There was a problem with the request' });
-  }
-});
-
 const merchantsRef = db.collection('merchants');
 
 app.get('/merchants', async (req, res) => {
@@ -95,6 +69,7 @@ app.get('/transactions/active', async (req, res) => {
     const cardQuerySnapshot = await cardsRef.get();
     cardQuerySnapshot.forEach(card => {
       const cardTransactions = [];
+
       // Get transactions
       (async () => {
         try {
@@ -104,7 +79,6 @@ app.get('/transactions/active', async (req, res) => {
 
           const transactionsQuerySnapshot = await transactionsRef.get();
 
-          // Push transactions to array
           transactionsQuerySnapshot.forEach(transaction => {
             cardTransactions.push({
               id: transaction.id,
