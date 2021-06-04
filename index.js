@@ -89,13 +89,11 @@ app.get('/merchants', async (req, res) => {
 });
 
 app.get('/transactions/active', async (req, res) => {
+  const activeTransactions = [];
+
   try {
     const cardQuerySnapshot = await cardsRef.get();
-    const activeTransactions = [];
-
     cardQuerySnapshot.forEach(card => {
-      // For each card
-      // Initialize/clear array for transactions
       const cardTransactions = [];
       // Get transactions
       (async () => {
