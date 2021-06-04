@@ -37,7 +37,7 @@ app.get('/cards', async (req, res) => {
       cards.push({ id: card.id, cardholder: card.data().cardholder });
     });
 
-    res.status(200).json({ cards });
+    res.status(200).json(cards);
   } catch (err) {
     console.log(err);
     req.status(500).send({ error: 'There was a problem with the request' });
@@ -82,6 +82,54 @@ app.get('/merchants', async (req, res) => {
     });
 
     res.status(200).json({ merchants });
+  } catch (err) {
+    console.log(err);
+    req.status(500).send({ error: 'There was a problem with the request' });
+  }
+});
+
+app.get('/transactions/active', async (req, res) => {
+  try {
+    const cardQuerySnapshot = await cardsRef.get();
+    const activeTransactions = [];
+
+    cardQuerySnapshot.forEach(card => {
+      // For each card
+      // Initialize/clear array for transactions
+      const cardTransactions = [];
+      // Get transactions
+      (async () => {
+        try {
+          const transactionsRef = cardsRef
+            .doc(card.id)
+            .collection('transactions');
+
+          const transactionsQuerySnapshot = await transactionsRef.get();
+
+          // Push transactions to array
+          transactionsQuerySnapshot.forEach(transaction => {
+            cardTransactions.push({
+              id: transaction.id,
+              merchant: transaction.data().merchant,
+              amount: transaction.data().amount,
+              date: transaction.data().date.toDate(),
+              archived: transaction.data().archived
+            });
+          });
+        } catch (err) {
+          console.log(err);
+        }
+      })();
+
+      activeTransactions.push({
+        cardId: card.id,
+        cardholder: card.data().cardholder,
+        transactions: cardTransactions
+      });
+    });
+
+    // TODO: Async/Await this
+    res.status(200).json(activeTransactions);
   } catch (err) {
     console.log(err);
     req.status(500).send({ error: 'There was a problem with the request' });
