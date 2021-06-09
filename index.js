@@ -87,7 +87,6 @@ app.get('/transactions/active', async (req, res) => {
         .doc(card.cardId)
         .collection('transactions')
         .where('archived', '==', false);
-
       const transactionsQuerySnapshot = await transactionsRef.get();
 
       transactionsQuerySnapshot.forEach(transaction => {
