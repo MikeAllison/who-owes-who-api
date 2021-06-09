@@ -60,7 +60,7 @@ app.get('/merchants', async (req, res) => {
     res.status(500).send({ error: 'There was a problem with the request' });
   }
 
-  res.status(200).json({ merchants });
+  res.status(200).json(merchants);
 });
 
 app.get('/transactions/active', async (req, res) => {
