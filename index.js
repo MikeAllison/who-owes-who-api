@@ -92,7 +92,7 @@ app.get('/transactions/active', async (req, res) => {
       transactionsQuerySnapshot.forEach(transaction => {
         card.transactions.push({
           id: transaction.id,
-          merchant: transaction.data().merchant,
+          merchantName: transaction.data().merchantName,
           amount: transaction.data().amount,
           date: transaction.data().date.toDate(),
           archived: transaction.data().archived
