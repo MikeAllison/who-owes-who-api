@@ -4,6 +4,7 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
 try {
   admin.initializeApp({
@@ -61,6 +62,16 @@ app.get('/merchants', async (req, res) => {
   }
 
   res.status(200).json(merchants);
+});
+
+app.post('/transactions', async (req, res) => {
+  try {
+    // Don't forget server-side validation
+    console.log(req.body);
+    res.status(200).json(req.body);
+  } catch (err) {
+    res.status(500).send({ error: 'There was a problem with the request' });
+  }
 });
 
 app.get('/transactions/active', async (req, res) => {
