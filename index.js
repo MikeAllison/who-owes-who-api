@@ -42,7 +42,7 @@ app.get('/cards', async (req, res) => {
       cards.push({ id: card.id, cardholder: card.data().cardholder });
     });
   } catch (err) {
-    res.status(500).send({ error: 'There was a problem with the request' });
+    res.status(500).send({ error: err.message });
   }
 
   res.status(200).json(cards);
@@ -58,13 +58,14 @@ app.get('/merchants', async (req, res) => {
       merchants.push({ id: merchant.id, name: merchant.data().name });
     });
   } catch (err) {
-    res.status(500).send({ error: 'There was a problem with the request' });
+    res.status(500).send({ error: err.message });
   }
 
   res.status(200).json(merchants);
 });
 
 app.post('/transactions', async (req, res) => {
+  // Input validation
   try {
     if (!req.body.merchantName) {
       throw new Error('Missing Merchant');
@@ -82,11 +83,39 @@ app.post('/transactions', async (req, res) => {
     if (!req.body.cardId) {
       throw new Error('Missing Card ID');
     }
-
-    res.status(200).json(req.body);
   } catch (err) {
     res.status(500).send({ error: err.message });
   }
+
+  // TODO: Should be a transaction that can be rolled back
+  try {
+    // Add new merchant to merchant-table if it doesn't exist
+    const snapshot = await merchantsRef
+      .where('name', '==', req.body.merchantName)
+      .get();
+    if (snapshot.empty) {
+      await db.collection('merchants').add({ name: req.body.merchantName });
+    }
+
+    // Check for card
+    const cardRef = db.collection('cards').doc(req.body.cardId);
+    const card = await cardRef.get();
+    if (!card.exists) {
+      throw new Error(`Card ${req.body.cardId} doesn't exist`);
+    }
+
+    // Save transaction
+    await cardRef.collection('transactions').add({
+      amount: req.body.amount,
+      archived: false,
+      enteredDate: admin.firestore.Timestamp.now(),
+      merchantName: req.body.merchantName
+    });
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
+
+  res.status(200).json(req.body);
 });
 
 app.get('/transactions/active', async (req, res) => {
@@ -103,7 +132,7 @@ app.get('/transactions/active', async (req, res) => {
       });
     });
   } catch (err) {
-    res.status(500).send({ error: 'There was a problem with the request' });
+    res.status(500).send({ error: err.message });
   }
 
   // Second, add all transactions to each card in activeTransactions
@@ -120,13 +149,13 @@ app.get('/transactions/active', async (req, res) => {
           id: transaction.id,
           merchantName: transaction.data().merchantName,
           amount: transaction.data().amount,
-          date: transaction.data().date.toDate(),
+          enteredDate: transaction.data().enteredDate.toDate(),
           archived: transaction.data().archived
         });
       });
     }
   } catch (err) {
-    res.status(500).send({ error: 'There was a problem with the request' });
+    res.status(500).send({ error: err.message });
   }
 
   res.status(200).json(activeTransactions);
