@@ -66,11 +66,26 @@ app.get('/merchants', async (req, res) => {
 
 app.post('/transactions', async (req, res) => {
   try {
-    // Don't forget server-side validation
-    console.log(req.body);
+    if (!req.body.merchantName) {
+      throw new Error('Missing Merchant');
+    }
+
+    if (!req.body.amount) {
+      throw new Error('Missing Amount');
+    }
+
+    req.body.amount = +req.body.amount;
+    if (isNaN(req.body.amount)) {
+      throw new Error('Amount Is Not A Number');
+    }
+
+    if (!req.body.cardId) {
+      throw new Error('Missing Card ID');
+    }
+
     res.status(200).json(req.body);
   } catch (err) {
-    res.status(500).send({ error: 'There was a problem with the request' });
+    res.status(500).send({ error: err.message });
   }
 });
 
