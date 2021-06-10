@@ -3,8 +3,17 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
 app.use(express.json());
+
+const CORS_ORIGIN = 'who-owes-who.5apps.com';
+const CORS_GET = {
+  origin: [CORS_ORIGIN],
+  methods: ['GET']
+};
+const CORS_POST = {
+  origin: [CORS_ORIGIN],
+  methods: ['POST']
+};
 
 try {
   admin.initializeApp({
@@ -32,7 +41,7 @@ const db = admin.firestore();
 const cardsRef = db.collection('cards');
 const merchantsRef = db.collection('merchants');
 
-app.get('/cards', async (req, res) => {
+app.get('/cards', cors(CORS_GET), async (req, res, next) => {
   const cards = [];
 
   try {
@@ -48,7 +57,7 @@ app.get('/cards', async (req, res) => {
   res.status(200).json(cards);
 });
 
-app.get('/merchants', async (req, res) => {
+app.get('/merchants', cors(CORS_GET), async (req, res, next) => {
   const merchants = [];
 
   try {
@@ -64,7 +73,7 @@ app.get('/merchants', async (req, res) => {
   res.status(200).json(merchants);
 });
 
-app.post('/transactions', async (req, res) => {
+app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
   // Input validation
   try {
     if (!req.body.merchantName) {
@@ -118,7 +127,7 @@ app.post('/transactions', async (req, res) => {
   res.status(200).json(req.body);
 });
 
-app.get('/transactions/active', async (req, res) => {
+app.get('/transactions/active', cors(CORS_GET), async (req, res, next) => {
   const activeTransactions = [];
 
   // First, add all cards to activeTransactions
