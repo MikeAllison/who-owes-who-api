@@ -45,6 +45,9 @@ const db = admin.firestore();
 const cardsRef = db.collection('cards');
 const merchantsRef = db.collection('merchants');
 
+// ************
+//  GET /cards
+// ************
 app.get('/cards', cors(CORS_GET), async (req, res, next) => {
   const cards = [];
 
@@ -61,6 +64,9 @@ app.get('/cards', cors(CORS_GET), async (req, res, next) => {
   res.status(200).json(cards);
 });
 
+// ****************
+//  GET /merchants
+// ****************
 app.get('/merchants', cors(CORS_GET), async (req, res, next) => {
   const merchants = [];
 
@@ -77,6 +83,9 @@ app.get('/merchants', cors(CORS_GET), async (req, res, next) => {
   res.status(200).json(merchants);
 });
 
+// ********************
+//  POST /transactions
+// ********************
 app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
   // Input validation
   try {
@@ -131,6 +140,9 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
   res.status(200).json(req.body);
 });
 
+// **************************
+//  GET /transactions/active
+// **************************
 app.get('/transactions/active', cors(CORS_GET), async (req, res, next) => {
   const activeTransactions = [];
 
