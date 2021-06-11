@@ -87,22 +87,28 @@ app.get('/merchants', cors(CORS_GET), async (req, res, next) => {
 //  POST /transactions
 // ********************
 app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
+  // TODO: Figure out how to deal with toFixed rounding
+  const transaction = {
+    merchantName: req.body.merchantName.replace(/\s+/g, ' ').trim(),
+    amount: +req.body.amount.toFixed(2),
+    cardId: req.body.cardId.trim()
+  };
+
   // Input validation
   try {
-    if (!req.body.merchantName) {
+    if (!transaction.merchantName) {
       throw new Error('Missing Merchant');
     }
 
-    if (!req.body.amount) {
+    if (!transaction.amount) {
       throw new Error('Missing Amount');
     }
 
-    req.body.amount = +req.body.amount;
-    if (isNaN(req.body.amount)) {
+    if (isNaN(transaction.amount)) {
       throw new Error('Amount Is Not A Number');
     }
 
-    if (!req.body.cardId) {
+    if (!transaction.cardId) {
       throw new Error('Missing Card ID');
     }
   } catch (err) {
@@ -113,31 +119,31 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
   try {
     // Add new merchant to merchant-table if it doesn't exist
     const snapshot = await merchantsRef
-      .where('name', '==', req.body.merchantName)
+      .where('name', '==', transaction.merchantName)
       .get();
     if (snapshot.empty) {
-      await db.collection('merchants').add({ name: req.body.merchantName });
+      await db.collection('merchants').add({ name: transaction.merchantName });
     }
 
     // Check for card
-    const cardRef = db.collection('cards').doc(req.body.cardId);
+    const cardRef = db.collection('cards').doc(transaction.cardId);
     const card = await cardRef.get();
     if (!card.exists) {
-      throw new Error(`Card ${req.body.cardId} doesn't exist`);
+      throw new Error(`Card ${transaction.cardId} doesn't exist`);
     }
 
     // Save transaction
     await cardRef.collection('transactions').add({
-      amount: req.body.amount,
-      archived: false,
+      merchantName: transaction.merchantName,
+      amount: transaction.amount,
       enteredDate: admin.firestore.Timestamp.now(),
-      merchantName: req.body.merchantName
+      archived: false
     });
   } catch (err) {
     res.status(500).send({ error: err.message });
   }
 
-  res.status(200).json(req.body);
+  res.status(200).send();
 });
 
 // **************************
