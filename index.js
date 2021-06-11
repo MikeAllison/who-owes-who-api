@@ -115,29 +115,35 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
     res.status(500).send({ error: err.message });
   }
 
-  // TODO: Should be a transaction that can be rolled back
   try {
-    // Add new merchant to merchant-table if it doesn't exist
-    const snapshot = await merchantsRef
-      .where('name', '==', transaction.merchantName)
-      .get();
-    if (snapshot.empty) {
-      await db.collection('merchants').add({ name: transaction.merchantName });
-    }
+    await db.runTransaction(async t => {
+      // Check merchant-table for merchant
+      const snapshot = await t.get(
+        merchantsRef.where('name', '==', transaction.merchantName)
+      );
 
-    // Check for card
-    const cardRef = db.collection('cards').doc(transaction.cardId);
-    const card = await cardRef.get();
-    if (!card.exists) {
-      throw new Error(`Card ${transaction.cardId} doesn't exist`);
-    }
+      // Verify card exists
+      const cardRef = db.collection('cards').doc(transaction.cardId);
+      const card = await t.get(cardRef);
+      if (!card.exists) {
+        throw new Error(`Card ${transaction.cardId} doesn't exist`);
+      }
 
-    // Save transaction
-    await cardRef.collection('transactions').add({
-      merchantName: transaction.merchantName,
-      amount: transaction.amount,
-      enteredDate: admin.firestore.Timestamp.now(),
-      archived: false
+      // If necessary, add merchant to merchant-table
+      // Firestore transaction requires reads first, then writes
+      if (snapshot.empty) {
+        await t.set(db.collection('merchants').doc(), {
+          name: transaction.merchantName
+        });
+      }
+
+      // Save transaction
+      await t.set(cardRef.collection('transactions').doc(), {
+        merchantName: transaction.merchantName,
+        amount: transaction.amount,
+        enteredDate: admin.firestore.Timestamp.now(),
+        archived: false
+      });
     });
   } catch (err) {
     res.status(500).send({ error: err.message });
