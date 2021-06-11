@@ -152,17 +152,17 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
   res.status(200).send();
 });
 
-// **************************
-//  GET /transactions/active
-// **************************
-app.get('/transactions/active', cors(CORS_GET), async (req, res, next) => {
-  const activeTransactions = [];
+// *******************
+//  GET /transactions
+// *******************
+app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
+  const transactions = [];
 
-  // First, add all cards to activeTransactions
+  // First, add all cards to transactions
   try {
     const cardQuerySnapshot = await cardsRef.get();
     cardQuerySnapshot.forEach(card => {
-      activeTransactions.push({
+      transactions.push({
         cardId: card.id,
         cardholder: card.data().cardholder,
         transactions: []
@@ -172,13 +172,22 @@ app.get('/transactions/active', cors(CORS_GET), async (req, res, next) => {
     res.status(500).send({ error: err.message });
   }
 
-  // Second, add all transactions to each card in activeTransactions
+  // Second, add all transactions to each card in transactions
+  const now = new Date();
+  const [month, day, year] = [now.getMonth(), now.getDate(), now.getFullYear()];
+  // Workaround for 0-based months in JS
+  if (month === 0) {
+    month = 12;
+    year -= 1;
+  }
+  const queryDate = new Date(year, month - 1, day);
+
   try {
-    for (const card of activeTransactions) {
+    for (const card of transactions) {
       const transactionsRef = cardsRef
         .doc(card.cardId)
         .collection('transactions')
-        .where('archived', '==', false);
+        .where('enteredDate', '>=', queryDate);
       const transactionsQuerySnapshot = await transactionsRef.get();
 
       transactionsQuerySnapshot.forEach(transaction => {
@@ -195,7 +204,7 @@ app.get('/transactions/active', cors(CORS_GET), async (req, res, next) => {
     res.status(500).send({ error: err.message });
   }
 
-  res.status(200).json(activeTransactions);
+  res.status(200).json(transactions);
 });
 
 app.listen(process.env.PORT, () => {
