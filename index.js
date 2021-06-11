@@ -2,18 +2,22 @@ const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
 
-const app = express();
-app.use(express.json());
-
-const CORS_ORIGIN = 'who-owes-who.5apps.com';
+const CORS_ORIGINS = [
+  'http://127.0.0.1:8080',
+  'https://who-owes-who.5apps.com'
+];
 const CORS_GET = {
-  origin: [CORS_ORIGIN],
+  origin: CORS_ORIGINS,
   methods: ['GET']
 };
 const CORS_POST = {
-  origin: [CORS_ORIGIN],
+  origin: CORS_ORIGINS,
   methods: ['POST']
 };
+
+const app = express();
+app.options('/transactions', cors(CORS_POST));
+app.use(express.json());
 
 try {
   admin.initializeApp({
