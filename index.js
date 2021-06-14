@@ -83,6 +83,61 @@ app.get('/merchants', cors(CORS_GET), async (req, res, next) => {
   res.status(200).json(merchants);
 });
 
+// *******************
+//  GET /transactions
+// *******************
+app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
+  const transactions = [];
+
+  // First, add all cards to transactions
+  try {
+    const cardQuerySnapshot = await cardsRef.get();
+    cardQuerySnapshot.forEach(card => {
+      transactions.push({
+        cardId: card.id,
+        cardholder: card.data().cardholder,
+        transactions: []
+      });
+    });
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
+
+  // Second, add all transactions to each card in transactions
+  const now = new Date();
+  const [month, day, year] = [now.getMonth(), now.getDate(), now.getFullYear()];
+  // Workaround for 0-based months in JS
+  if (month === 0) {
+    month = 12;
+    year -= 1;
+  }
+  const queryDate = new Date(year, month - 1, day);
+
+  try {
+    for (const card of transactions) {
+      const transactionsRef = cardsRef
+        .doc(card.cardId)
+        .collection('transactions')
+        .where('enteredDate', '>=', queryDate);
+      const transactionsQuerySnapshot = await transactionsRef.get();
+
+      transactionsQuerySnapshot.forEach(transaction => {
+        card.transactions.push({
+          id: transaction.id,
+          merchantName: transaction.data().merchantName,
+          amount: transaction.data().amount,
+          enteredDate: transaction.data().enteredDate.toDate(),
+          archived: transaction.data().archived
+        });
+      });
+    }
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
+
+  res.status(200).json(transactions);
+});
+
 // ********************
 //  POST /transactions
 // ********************
@@ -150,61 +205,6 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
   }
 
   res.status(200).send();
-});
-
-// *******************
-//  GET /transactions
-// *******************
-app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
-  const transactions = [];
-
-  // First, add all cards to transactions
-  try {
-    const cardQuerySnapshot = await cardsRef.get();
-    cardQuerySnapshot.forEach(card => {
-      transactions.push({
-        cardId: card.id,
-        cardholder: card.data().cardholder,
-        transactions: []
-      });
-    });
-  } catch (err) {
-    res.status(500).send({ error: err.message });
-  }
-
-  // Second, add all transactions to each card in transactions
-  const now = new Date();
-  const [month, day, year] = [now.getMonth(), now.getDate(), now.getFullYear()];
-  // Workaround for 0-based months in JS
-  if (month === 0) {
-    month = 12;
-    year -= 1;
-  }
-  const queryDate = new Date(year, month - 1, day);
-
-  try {
-    for (const card of transactions) {
-      const transactionsRef = cardsRef
-        .doc(card.cardId)
-        .collection('transactions')
-        .where('enteredDate', '>=', queryDate);
-      const transactionsQuerySnapshot = await transactionsRef.get();
-
-      transactionsQuerySnapshot.forEach(transaction => {
-        card.transactions.push({
-          id: transaction.id,
-          merchantName: transaction.data().merchantName,
-          amount: transaction.data().amount,
-          enteredDate: transaction.data().enteredDate.toDate(),
-          archived: transaction.data().archived
-        });
-      });
-    }
-  } catch (err) {
-    res.status(500).send({ error: err.message });
-  }
-
-  res.status(200).json(transactions);
 });
 
 app.listen(process.env.PORT, () => {
