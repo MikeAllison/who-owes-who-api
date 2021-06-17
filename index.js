@@ -42,8 +42,8 @@ try {
 
 // Firestore
 const db = admin.firestore();
-const cardsRef = db.collection('cards');
-const merchantsRef = db.collection('merchants');
+const cardsCollection = db.collection('cards');
+const merchantsCollection = db.collection('merchants');
 
 // ************
 //  GET /cards
@@ -52,7 +52,7 @@ app.get('/cards', cors(CORS_GET), async (req, res, next) => {
   const cards = [];
 
   try {
-    const cardQuerySnapshot = await cardsRef.get();
+    const cardQuerySnapshot = await cardsCollection.get();
 
     cardQuerySnapshot.forEach(card => {
       cards.push({ id: card.id, cardholder: card.data().cardholder });
@@ -71,7 +71,7 @@ app.get('/merchants', cors(CORS_GET), async (req, res, next) => {
   const merchants = [];
 
   try {
-    const merchantQuerySnapshot = await merchantsRef.get();
+    const merchantQuerySnapshot = await merchantsCollection.get();
 
     merchantQuerySnapshot.forEach(merchant => {
       merchants.push({ id: merchant.id, name: merchant.data().name });
@@ -91,7 +91,7 @@ app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
 
   // First, add all cards to transactions
   try {
-    const cardQuerySnapshot = await cardsRef.get();
+    const cardQuerySnapshot = await cardsCollection.get();
 
     cardQuerySnapshot.forEach(card => {
       transactions.push({
@@ -116,7 +116,7 @@ app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
 
   try {
     for (const card of transactions) {
-      const transactionsRef = cardsRef
+      const transactionsRef = cardsCollection
         .doc(card.cardId)
         .collection('transactions')
         .where('enteredDate', '>=', queryDate);
@@ -187,7 +187,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
       // Check merchant-table for merchant
       // If necessary, add merchant to merchant-table
       const snapshot = await t.get(
-        merchantsRef.where('name', '==', transaction.merchantName)
+        merchantsCollection.where('name', '==', transaction.merchantName)
       );
 
       if (snapshot.empty) {
@@ -214,7 +214,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
       const tally = new Map();
 
       // For each card, add the cardholder (and card ID) to the map
-      const cardQuerySnapshot = await t.get(cardsRef);
+      const cardQuerySnapshot = await t.get(cardsCollection);
 
       cardQuerySnapshot.forEach(card => {
         if (!tally.has(card.data().cardholder)) {
@@ -232,7 +232,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
       // ...tally it to their entry in the map
       for (const cardholder of tally) {
         for (const cardId of cardholder[1].cardIds) {
-          const transactionsRef = cardsRef
+          const transactionsRef = cardsCollection
             .doc(cardId)
             .collection('transactions')
             .where('archived', '==', false);
@@ -260,7 +260,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
 
         for (const cardholder of tally) {
           for (const cardId of cardholder[1].cardIds) {
-            const transactionsRef = cardsRef
+            const transactionsRef = cardsCollection
               .doc(cardId)
               .collection('transactions')
               .where('archived', '==', false);
@@ -278,7 +278,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
 
         // Update the DB for each transaction in activeTransactions array
         for (const transaction of activeTransactions) {
-          const transactionRef = cardsRef
+          const transactionRef = cardsCollection
             .doc(transaction.cardId)
             .collection('transactions')
             .doc(transaction.transactionId);
