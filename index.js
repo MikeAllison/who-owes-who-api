@@ -41,9 +41,9 @@ try {
 }
 
 // Firestore
-const db = admin.firestore();
-const cardsCollection = db.collection('cards');
-const merchantsCollection = db.collection('merchants');
+const firestore = admin.firestore();
+const cardsCollection = firestore.collection('cards');
+const merchantsCollection = firestore.collection('merchants');
 
 // ************
 //  GET /cards
@@ -174,9 +174,9 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
 
   // Save the transaction
   try {
-    await db.runTransaction(async t => {
+    await firestore.runTransaction(async t => {
       // Verify card exists
-      const cardRef = db.collection('cards').doc(transaction.cardId);
+      const cardRef = firestore.collection('cards').doc(transaction.cardId);
 
       const card = await t.get(cardRef);
 
@@ -191,7 +191,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
       );
 
       if (snapshot.empty) {
-        await t.set(db.collection('merchants').doc(), {
+        await t.set(firestore.collection('merchants').doc(), {
           name: transaction.merchantName
         });
       }
@@ -210,7 +210,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
 
   // Check to see if transactions can be archived
   try {
-    await db.runTransaction(async t => {
+    await firestore.runTransaction(async t => {
       const tally = new Map();
 
       // For each card, add the cardholder (and card ID) to the map
