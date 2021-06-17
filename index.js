@@ -92,6 +92,7 @@ app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
   // First, add all cards to transactions
   try {
     const cardQuerySnapshot = await cardsRef.get();
+
     cardQuerySnapshot.forEach(card => {
       transactions.push({
         cardId: card.id,
@@ -119,6 +120,7 @@ app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
         .doc(card.cardId)
         .collection('transactions')
         .where('enteredDate', '>=', queryDate);
+
       const transactionsQuerySnapshot = await transactionsRef.get();
 
       transactionsQuerySnapshot.forEach(transaction => {
@@ -175,7 +177,9 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
     await db.runTransaction(async t => {
       // Verify card exists
       const cardRef = db.collection('cards').doc(transaction.cardId);
+
       const card = await t.get(cardRef);
+
       if (!card.exists) {
         throw new Error(`Card ${transaction.cardId} doesn't exist`);
       }
@@ -185,6 +189,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
       const snapshot = await t.get(
         merchantsRef.where('name', '==', transaction.merchantName)
       );
+
       if (snapshot.empty) {
         await t.set(db.collection('merchants').doc(), {
           name: transaction.merchantName
@@ -210,6 +215,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
 
       // For each card, add the cardholder (and card ID) to the map
       const cardQuerySnapshot = await t.get(cardsRef);
+
       cardQuerySnapshot.forEach(card => {
         if (!tally.has(card.data().cardholder)) {
           tally.set(card.data().cardholder, {
@@ -232,6 +238,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
             .where('archived', '==', false);
 
           const transactionsQuerySnapshot = await t.get(transactionsRef);
+
           transactionsQuerySnapshot.forEach(transaction => {
             cardholder[1].transactionTotal += transaction.data().amount;
           });
@@ -240,6 +247,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
 
       // Check for even transaction totals
       const allTransactionTotals = [];
+
       tally.forEach(cardholder => {
         allTransactionTotals.push(cardholder.transactionTotal);
       });
@@ -258,6 +266,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
               .where('archived', '==', false);
 
             const transactionsQuerySnapshot = await t.get(transactionsRef);
+
             transactionsQuerySnapshot.forEach(transaction => {
               activeTransactions.push({
                 transactionId: transaction.id,
