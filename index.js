@@ -203,7 +203,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
     res.status(500).send({ error: err.message });
   }
 
-  // Check for even transaction totals and...if even, archive transactions
+  // Check to see if transactions can be archived
   try {
     await db.runTransaction(async t => {
       const tally = new Map();
@@ -245,19 +245,37 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
       });
 
       // TODO: If the difference is also < or > 0.01, archive all transactions
+      // If all transactions are even...
       if (allTransactionTotals.every((val, i, arr) => val === arr[0])) {
-        // TODO: Remove
-        console.log('EVEN!');
-        console.log(allTransactionTotals);
+        // Collect an array of active transactions [{ transactionId: 'ABC123XYZ', cardId: 1234 }]
+        activeTransactions = [];
 
-        // If everything is even...
-        // Get each card ID...
-        // For each card ID, update each 'archived: false' transaction
+        for (const cardholder of tally) {
+          for (const cardId of cardholder[1].cardIds) {
+            const transactionsRef = cardsRef
+              .doc(cardId)
+              .collection('transactions')
+              .where('archived', '==', false);
 
-        // TODO: Remove
-      } else {
-        console.log('NOT EVEN!');
-        console.log(allTransactionTotals);
+            const transactionsQuerySnapshot = await t.get(transactionsRef);
+            transactionsQuerySnapshot.forEach(transaction => {
+              activeTransactions.push({
+                transactionId: transaction.id,
+                cardId: cardId
+              });
+            });
+          }
+        }
+
+        // Update the DB for each transaction in activeTransactions array
+        for (const transaction of activeTransactions) {
+          const transactionRef = cardsRef
+            .doc(transaction.cardId)
+            .collection('transactions')
+            .doc(transaction.transactionId);
+
+          await t.update(transactionRef, { archived: true });
+        }
       }
     });
   } catch (err) {
