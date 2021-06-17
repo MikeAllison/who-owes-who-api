@@ -154,15 +154,15 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
     if (!transaction.merchantName) {
       throw new Error('Missing Merchant');
     }
-
     if (!transaction.amount) {
       throw new Error('Missing Amount');
     }
-
+    if (!transaction.amount > 0) {
+      throw new Error('Amount Must Be More Than $0');
+    }
     if (isNaN(transaction.amount)) {
       throw new Error('Amount Is Not A Number');
     }
-
     if (!transaction.cardId) {
       throw new Error('Missing Card ID');
     }
@@ -170,13 +170,9 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
     res.status(500).send({ error: err.message });
   }
 
+  // Save the transaction
   try {
     await db.runTransaction(async t => {
-      // Check merchant-table for merchant
-      const snapshot = await t.get(
-        merchantsRef.where('name', '==', transaction.merchantName)
-      );
-
       // Verify card exists
       const cardRef = db.collection('cards').doc(transaction.cardId);
       const card = await t.get(cardRef);
@@ -184,8 +180,11 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
         throw new Error(`Card ${transaction.cardId} doesn't exist`);
       }
 
+      // Check merchant-table for merchant
       // If necessary, add merchant to merchant-table
-      // Firestore transaction requires reads first, then writes
+      const snapshot = await t.get(
+        merchantsRef.where('name', '==', transaction.merchantName)
+      );
       if (snapshot.empty) {
         await t.set(db.collection('merchants').doc(), {
           name: transaction.merchantName
@@ -199,6 +198,67 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
         enteredDate: admin.firestore.Timestamp.now(),
         archived: false
       });
+    });
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
+
+  // Check for even transaction totals and...if even, archive transactions
+  try {
+    await db.runTransaction(async t => {
+      const tally = new Map();
+
+      // For each card, add the cardholder (and card ID) to the map
+      const cardQuerySnapshot = await t.get(cardsRef);
+      cardQuerySnapshot.forEach(card => {
+        if (!tally.has(card.data().cardholder)) {
+          tally.set(card.data().cardholder, {
+            cardIds: [],
+            transactionTotal: 0
+          });
+        }
+
+        tally.get(card.data().cardholder).cardIds.push(card.id);
+      });
+
+      // For each cardholder's card, in the tally...
+      // ...get each non-archived transaction...
+      // ...tally it to their entry in the map
+      for (const cardholder of tally) {
+        for (const cardId of cardholder[1].cardIds) {
+          const transactionsRef = cardsRef
+            .doc(cardId)
+            .collection('transactions')
+            .where('archived', '==', false);
+
+          const transactionsQuerySnapshot = await t.get(transactionsRef);
+          transactionsQuerySnapshot.forEach(transaction => {
+            cardholder[1].transactionTotal += transaction.data().amount;
+          });
+        }
+      }
+
+      // Check for even transaction totals
+      const allTransactionTotals = [];
+      tally.forEach(cardholder => {
+        allTransactionTotals.push(cardholder.transactionTotal);
+      });
+
+      // TODO: If the difference is also < or > 0.01, archive all transactions
+      if (allTransactionTotals.every((val, i, arr) => val === arr[0])) {
+        // TODO: Remove
+        console.log('EVEN!');
+        console.log(allTransactionTotals);
+
+        // If everything is even...
+        // Get each card ID...
+        // For each card ID, update each 'archived: false' transaction
+
+        // TODO: Remove
+      } else {
+        console.log('NOT EVEN!');
+        console.log(allTransactionTotals);
+      }
     });
   } catch (err) {
     res.status(500).send({ error: err.message });
