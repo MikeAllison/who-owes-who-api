@@ -116,12 +116,12 @@ app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
 
   try {
     for (const card of transactions) {
-      const transactionsRef = cardsCollection
+      const cardTransactionsQuery = cardsCollection
         .doc(card.cardId)
         .collection('transactions')
         .where('enteredDate', '>=', queryDate);
 
-      const transactionsQueryResults = await transactionsRef.get();
+      const transactionsQueryResults = await cardTransactionsQuery.get();
 
       transactionsQueryResults.forEach(transaction => {
         card.transactions.push({
@@ -176,22 +176,22 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
   try {
     await firestore.runTransaction(async t => {
       // Verify card exists
-      const cardRef = firestore.collection('cards').doc(transaction.cardId);
+      const cardRef = cardsCollection.doc(transaction.cardId);
 
-      const card = await t.get(cardRef);
+      const cardQueryResults = await t.get(cardRef);
 
-      if (!card.exists) {
+      if (!cardQueryResults.exists) {
         throw new Error(`Card ${transaction.cardId} doesn't exist`);
       }
 
       // Check merchant-table for merchant
       // If necessary, add merchant to merchant-table
-      const snapshot = await t.get(
+      const merchantQueryResults = (pshot = await t.get(
         merchantsCollection.where('name', '==', transaction.merchantName)
-      );
+      ));
 
-      if (snapshot.empty) {
-        await t.set(firestore.collection('merchants').doc(), {
+      if (merchantQueryResults.empty) {
+        await t.set(merchantsCollection.doc(), {
           name: transaction.merchantName
         });
       }
