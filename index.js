@@ -232,12 +232,12 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
       // ...tally it to their entry in the map
       for (const cardholder of tally) {
         for (const cardId of cardholder[1].cardIds) {
-          const transactionsRef = cardsCollection
+          const activeTransactionsQuery = cardsCollection
             .doc(cardId)
             .collection('transactions')
             .where('archived', '==', false);
 
-          const transactionsQueryResults = await t.get(transactionsRef);
+          const transactionsQueryResults = await t.get(activeTransactionsQuery);
 
           transactionsQueryResults.forEach(transaction => {
             cardholder[1].transactionTotal += transaction.data().amount;
@@ -260,12 +260,14 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
 
         for (const cardholder of tally) {
           for (const cardId of cardholder[1].cardIds) {
-            const transactionsRef = cardsCollection
+            const activeTransactionsQuery = cardsCollection
               .doc(cardId)
               .collection('transactions')
               .where('archived', '==', false);
 
-            const transactionsQueryResults = await t.get(transactionsRef);
+            const transactionsQueryResults = await t.get(
+              activeTransactionsQuery
+            );
 
             transactionsQueryResults.forEach(transaction => {
               activeTransactions.push({
