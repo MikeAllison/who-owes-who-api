@@ -52,9 +52,9 @@ app.get('/cards', cors(CORS_GET), async (req, res, next) => {
   const cards = [];
 
   try {
-    const cardQuerySnapshot = await cardsCollection.get();
+    const cardsQueryResults = await cardsCollection.get();
 
-    cardQuerySnapshot.forEach(card => {
+    cardsQueryResults.forEach(card => {
       cards.push({ id: card.id, cardholder: card.data().cardholder });
     });
   } catch (err) {
@@ -71,9 +71,9 @@ app.get('/merchants', cors(CORS_GET), async (req, res, next) => {
   const merchants = [];
 
   try {
-    const merchantQuerySnapshot = await merchantsCollection.get();
+    const merchantsQueryResults = await merchantsCollection.get();
 
-    merchantQuerySnapshot.forEach(merchant => {
+    merchantsQueryResults.forEach(merchant => {
       merchants.push({ id: merchant.id, name: merchant.data().name });
     });
   } catch (err) {
