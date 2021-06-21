@@ -183,9 +183,9 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
 
       // Check merchant-table for merchant
       // If necessary, add merchant to merchant-table
-      const merchantQueryResults = (pshot = await t.get(
+      const merchantQueryResults = await t.get(
         merchantsCollection.where('name', '==', transaction.merchantName)
-      ));
+      );
 
       if (merchantQueryResults.empty) {
         await t.set(merchantsCollection.doc(), {
