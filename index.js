@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
 const express = require('express');
+const https = require('https');
 const cors = require('cors');
 
 const CORS_ORIGIN = process.env.CORS_ORIGIN;
@@ -293,6 +294,15 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
   res.status(200).send();
 });
 
-app.listen(process.env.PORT, () => {
+const fs = require('fs');
+const key = fs.readFileSync('creds/key.pem');
+const cert = fs.readFileSync('creds/cert.pem');
+
+const server = https.createServer({ 
+  key: Buffer.from(process.env.SSL_KEY, "base64").toString("ascii"),
+  cert: Buffer.from(process.env.SSL_CERT, "base64").toString("ascii") 
+}, app);
+server.listen(process.env.PORT, () => {
   console.log(`Listening on port ${process.env.PORT}`);
 });
+
