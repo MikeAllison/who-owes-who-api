@@ -2,7 +2,7 @@ const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
 
-const CORS_ORIGIN = process.env.CORS_ORIGIN;
+const CORS_ORIGIN = 'https://who-owes-who.5apps.com'
 const CORS_GET = {
   origin: [CORS_ORIGIN],
   methods: ['GET']
