@@ -13,10 +13,13 @@ const CORS_POST = {
 };
 
 const app = express();
-app.enable('trust proxy');
-app.use((req, res, next) => {
-    req.secure ? next() : res.redirect('https://' + req.headers.host + req.url)
-});
+
+if (process.env.NODE_ENV === 'production') {
+  app.enable('trust proxy');
+  app.use((req, res, next) => {
+    req.secure ? next() : res.redirect('https://' + req.headers.host + req.url);
+  });
+}
 app.options('/transactions', cors(CORS_POST));
 app.use(express.json());
 
@@ -300,4 +303,3 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
 app.listen(process.env.PORT, () => {
   console.log(`Listening on port ${process.env.PORT}`);
 });
-
