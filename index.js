@@ -294,10 +294,6 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
   res.status(200).send();
 });
 
-const fs = require('fs');
-const key = fs.readFileSync('creds/key.pem');
-const cert = fs.readFileSync('creds/cert.pem');
-
 const server = https.createServer({ 
   key: Buffer.from(process.env.SSL_KEY, "base64").toString("ascii"),
   cert: Buffer.from(process.env.SSL_CERT, "base64").toString("ascii") 
