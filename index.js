@@ -14,12 +14,14 @@ const CORS_POST = {
 
 const app = express();
 
+// HTTPS redirect
 if (process.env.NODE_ENV === 'production') {
   app.enable('trust proxy');
   app.use((req, res, next) => {
     req.secure ? next() : res.redirect('https://' + req.headers.host + req.url);
   });
 }
+
 app.options('/transactions', cors(CORS_POST));
 app.use(express.json());
 
