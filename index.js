@@ -1,4 +1,6 @@
+const twilio = require('twilio');
 const admin = require('firebase-admin');
+const jwt = require('jsonwebtoken');
 const express = require('express');
 const cors = require('cors');
 
@@ -22,7 +24,7 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.options('/transactions', cors(CORS_POST));
+app.options(['/auth', '/transactions'], cors(CORS_POST));
 app.use(express.json());
 
 try {
@@ -42,19 +44,138 @@ try {
     })
   });
 } catch (err) {
-  console.log('There was a problem authenticating to Firestore');
-  console.log(err);
+  console.log(`There was a problem authenticating to Firestore: ${err}`);
+  return;
 }
 
 // Firestore
 const firestore = admin.firestore();
+const usersCollection = firestore.collection('users');
 const cardsCollection = firestore.collection('cards');
 const merchantsCollection = firestore.collection('merchants');
+
+// ***********
+//  GET /auth
+// ***********
+app.get('/auth', cors(CORS_GET), async (req, res) => {
+  const userQuery = usersCollection.doc(`${process.env.VERIFICATION_PHONE}`);
+  let user;
+  let verificationSid;
+
+  try {
+    userQueryResults = await userQuery.get();
+
+    if (!userQueryResults.exists) {
+      throw new Error('Account Does Not Exist');
+    }
+
+    user = userQueryResults.data();
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(404);
+    return;
+  }
+
+  try {
+    if (user.failedAuthAttempts >= +process.env.LOCKOUT_THRESHOLD) {
+      throw new Error('Account Locked');
+    }
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(403);
+    return;
+  }
+
+  try {
+    const client = new twilio(
+      process.env.TWILIO_ACCT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+
+    await client.verify
+      .services(`${process.env.TWILIO_SERVICE_ID}`)
+      .verifications.create({
+        to: `${process.env.VERIFICATION_PHONE}`,
+        channel: 'sms'
+      })
+      .then(verification => {
+        verificationSid = verification.sid;
+      });
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+    return;
+  }
+
+  res.sendStatus(200);
+});
+
+// ************
+//  POST /auth
+// ************
+app.post('/auth', cors(CORS_POST), async (req, res) => {
+  const userQuery = usersCollection.doc(`${process.env.VERIFICATION_PHONE}`);
+  let user;
+
+  try {
+    userQueryResults = await userQuery.get();
+
+    if (!userQueryResults.exists) {
+      throw new Error('Account Does Not Exist');
+    }
+
+    user = userQueryResults.data();
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(404);
+    return;
+  }
+
+  try {
+    if (user.failedAuthAttempts >= +process.env.LOCKOUT_THRESHOLD) {
+      throw new Error('Account Locked');
+    }
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(403);
+    return;
+  }
+
+  try {
+    const client = new twilio(
+      process.env.TWILIO_ACCT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+
+    await client.verify
+      .services(`${process.env.TWILIO_SERVICE_ID}`)
+      .verificationChecks.create({
+        to: `${process.env.VERIFICATION_PHONE}`,
+        code: req.body.verificationCode
+      })
+      .then(verification_check => {
+        if (verification_check.status !== 'approved') {
+          throw new Error('Authentication Failed');
+        }
+      });
+  } catch (err) {
+    await userQuery.update({
+      failedAuthAttempts: (user.failedAuthAttempts += 1)
+    });
+    res.sendStatus(403);
+    return;
+  }
+
+  console.log('token created');
+  console.log('token saved');
+  console.log('token returned');
+  res.sendStatus(201);
+});
 
 // ************
 //  GET /cards
 // ************
-app.get('/cards', cors(CORS_GET), async (req, res, next) => {
+app.get('/cards', cors(CORS_GET), async (req, res) => {
   const cards = [];
 
   try {
@@ -65,6 +186,7 @@ app.get('/cards', cors(CORS_GET), async (req, res, next) => {
     });
   } catch (err) {
     res.status(500).send({ error: err.message });
+    return;
   }
 
   res.status(200).json(cards);
@@ -73,7 +195,7 @@ app.get('/cards', cors(CORS_GET), async (req, res, next) => {
 // ****************
 //  GET /merchants
 // ****************
-app.get('/merchants', cors(CORS_GET), async (req, res, next) => {
+app.get('/merchants', cors(CORS_GET), async (req, res) => {
   const merchants = [];
 
   try {
@@ -84,6 +206,7 @@ app.get('/merchants', cors(CORS_GET), async (req, res, next) => {
     });
   } catch (err) {
     res.status(500).send({ error: err.message });
+    return;
   }
 
   res.status(200).json(merchants);
@@ -92,7 +215,7 @@ app.get('/merchants', cors(CORS_GET), async (req, res, next) => {
 // *******************
 //  GET /transactions
 // *******************
-app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
+app.get('/transactions', cors(CORS_GET), async (req, res) => {
   const transactions = [];
 
   // First, add all cards to transactions
@@ -108,6 +231,7 @@ app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
     });
   } catch (err) {
     res.status(500).send({ error: err.message });
+    return;
   }
 
   // Second, add all transactions to each card in transactions
@@ -141,6 +265,7 @@ app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
     }
   } catch (err) {
     res.status(500).send({ error: err.message });
+    return;
   }
 
   res.status(200).json(transactions);
@@ -149,7 +274,7 @@ app.get('/transactions', cors(CORS_GET), async (req, res, next) => {
 // ********************
 //  POST /transactions
 // ********************
-app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
+app.post('/transactions', cors(CORS_POST), async (req, res) => {
   // TODO: Figure out how to deal with toFixed rounding
   const transaction = {
     merchantName: req.body.merchantName.replace(/\s+/g, ' ').trim(),
@@ -176,6 +301,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
     }
   } catch (err) {
     res.status(500).send({ error: err.message });
+    return;
   }
 
   // Save the transaction
@@ -212,6 +338,7 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
     });
   } catch (err) {
     res.status(500).send({ error: err.message });
+    return;
   }
 
   // Check to see if transactions can be archived
@@ -297,9 +424,10 @@ app.post('/transactions', cors(CORS_POST), async (req, res, next) => {
     });
   } catch (err) {
     res.status(500).send({ error: err.message });
+    return;
   }
 
-  res.status(200).send();
+  res.sendStatus(201);
 });
 
 app.listen(process.env.PORT, () => {
