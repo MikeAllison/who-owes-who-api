@@ -51,11 +51,17 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.options(['/cards', '/merchants'], cors(CORS_GET));
-app.options(['/auth', '/transactions'], cors(CORS_POST));
+app.options(['/api/cards', '/api/merchants'], cors(CORS_GET));
+app.options(['/api/auth', '/api/transactions'], cors(CORS_POST));
 app.use(express.json());
 
 const verifyAuth = async (req, res, next) => {
+  console.log(req.headers.authorization);
+  // if (!req.headers.authorization) {
+  //   res.sendStatus(401);
+  //   return;
+  // }
+
   const authToken = req.headers.authorization.split(' ')[1];
   let user = null;
   let decodedToken = null;
@@ -99,7 +105,7 @@ const verifyAuth = async (req, res, next) => {
 // ***********
 //  GET /auth
 // ***********
-app.get('/auth', cors(CORS_GET), async (req, res) => {
+app.get('/api/auth', cors(CORS_GET), async (req, res) => {
   const userQuery = usersCollection.doc(`${process.env.VERIFICATION_PHONE}`);
   let user;
 
@@ -155,7 +161,7 @@ app.get('/auth', cors(CORS_GET), async (req, res) => {
 // ************
 //  POST /auth
 // ************
-app.post('/auth', cors(CORS_POST), async (req, res) => {
+app.post('/api/auth', cors(CORS_POST), async (req, res) => {
   const userQuery = usersCollection.doc(`${process.env.VERIFICATION_PHONE}`);
   let user;
 
@@ -236,7 +242,7 @@ app.post('/auth', cors(CORS_POST), async (req, res) => {
 // ************
 //  GET /cards
 // ************
-app.get('/cards', [cors(CORS_GET), verifyAuth], async (req, res) => {
+app.get('/api/cards', [cors(CORS_GET), verifyAuth], async (req, res) => {
   const cards = [];
 
   try {
@@ -256,7 +262,7 @@ app.get('/cards', [cors(CORS_GET), verifyAuth], async (req, res) => {
 // ****************
 //  GET /merchants
 // ****************
-app.get('/merchants', [cors(CORS_GET), verifyAuth], async (req, res) => {
+app.get('/api/merchants', [cors(CORS_GET), verifyAuth], async (req, res) => {
   const merchants = [];
 
   try {
@@ -276,7 +282,7 @@ app.get('/merchants', [cors(CORS_GET), verifyAuth], async (req, res) => {
 // *******************
 //  GET /transactions
 // *******************
-app.get('/transactions', [cors(CORS_GET), verifyAuth], async (req, res) => {
+app.get('/api/transactions', [cors(CORS_GET), verifyAuth], async (req, res) => {
   const transactions = [];
 
   // First, add all cards to transactions
@@ -335,123 +341,98 @@ app.get('/transactions', [cors(CORS_GET), verifyAuth], async (req, res) => {
 // ********************
 //  POST /transactions
 // ********************
-app.post('/transactions', [cors(CORS_POST), verifyAuth], async (req, res) => {
-  // TODO: Figure out how to deal with toFixed rounding
-  const transaction = {
-    merchantName: req.body.merchantName.replace(/\s+/g, ' ').trim(),
-    amount: +req.body.amount.toFixed(2),
-    cardId: req.body.cardId.trim()
-  };
+app.post(
+  '/api/transactions',
+  [cors(CORS_POST), verifyAuth],
+  async (req, res) => {
+    // TODO: Figure out how to deal with toFixed rounding
+    const transaction = {
+      merchantName: req.body.merchantName.replace(/\s+/g, ' ').trim(),
+      amount: +req.body.amount.toFixed(2),
+      cardId: req.body.cardId.trim()
+    };
 
-  // Input validation
-  try {
-    if (!transaction.merchantName) {
-      throw new Error('Missing Merchant');
-    }
-    if (!transaction.amount) {
-      throw new Error('Missing Amount');
-    }
-    if (!transaction.amount > 0) {
-      throw new Error('Amount Must Be More Than $0');
-    }
-    if (isNaN(transaction.amount)) {
-      throw new Error('Amount Is Not A Number');
-    }
-    if (!transaction.cardId) {
-      throw new Error('Missing Card ID');
-    }
-  } catch (err) {
-    res.status(500).send({ error: err.message });
-    return;
-  }
-
-  // Save the transaction
-  try {
-    await firestore.runTransaction(async t => {
-      // Verify card exists
-      const cardRef = cardsCollection.doc(transaction.cardId);
-
-      const cardQueryResults = await t.get(cardRef);
-
-      if (!cardQueryResults.exists) {
-        throw new Error(`Card ${transaction.cardId} doesn't exist`);
+    // Input validation
+    try {
+      if (!transaction.merchantName) {
+        throw new Error('Missing Merchant');
       }
+      if (!transaction.amount) {
+        throw new Error('Missing Amount');
+      }
+      if (!transaction.amount > 0) {
+        throw new Error('Amount Must Be More Than $0');
+      }
+      if (isNaN(transaction.amount)) {
+        throw new Error('Amount Is Not A Number');
+      }
+      if (!transaction.cardId) {
+        throw new Error('Missing Card ID');
+      }
+    } catch (err) {
+      res.status(500).send({ error: err.message });
+      return;
+    }
 
-      // Check merchant-table for merchant
-      // If necessary, add merchant to merchant-table
-      const merchantQueryResults = await t.get(
-        merchantsCollection.where('name', '==', transaction.merchantName)
-      );
+    // Save the transaction
+    try {
+      await firestore.runTransaction(async t => {
+        // Verify card exists
+        const cardRef = cardsCollection.doc(transaction.cardId);
 
-      if (merchantQueryResults.empty) {
-        await t.set(merchantsCollection.doc(), {
-          name: transaction.merchantName
+        const cardQueryResults = await t.get(cardRef);
+
+        if (!cardQueryResults.exists) {
+          throw new Error(`Card ${transaction.cardId} doesn't exist`);
+        }
+
+        // Check merchant-table for merchant
+        // If necessary, add merchant to merchant-table
+        const merchantQueryResults = await t.get(
+          merchantsCollection.where('name', '==', transaction.merchantName)
+        );
+
+        if (merchantQueryResults.empty) {
+          await t.set(merchantsCollection.doc(), {
+            name: transaction.merchantName
+          });
+        }
+
+        // Save transaction
+        await t.set(cardRef.collection('transactions').doc(), {
+          merchantName: transaction.merchantName,
+          amount: transaction.amount,
+          enteredDate: admin.firestore.Timestamp.now(),
+          archived: false
         });
-      }
-
-      // Save transaction
-      await t.set(cardRef.collection('transactions').doc(), {
-        merchantName: transaction.merchantName,
-        amount: transaction.amount,
-        enteredDate: admin.firestore.Timestamp.now(),
-        archived: false
       });
-    });
-  } catch (err) {
-    res.status(500).send({ error: err.message });
-    return;
-  }
+    } catch (err) {
+      res.status(500).send({ error: err.message });
+      return;
+    }
 
-  // Check to see if transactions can be archived
-  try {
-    await firestore.runTransaction(async t => {
-      const tally = new Map();
+    // Check to see if transactions can be archived
+    try {
+      await firestore.runTransaction(async t => {
+        const tally = new Map();
 
-      // For each card, add the cardholder (and card ID) to the map
-      const cardsQueryResults = await t.get(cardsCollection);
+        // For each card, add the cardholder (and card ID) to the map
+        const cardsQueryResults = await t.get(cardsCollection);
 
-      cardsQueryResults.forEach(card => {
-        if (!tally.has(card.data().cardholder)) {
-          tally.set(card.data().cardholder, {
-            cardIds: [],
-            transactionTotal: 0
-          });
-        }
+        cardsQueryResults.forEach(card => {
+          if (!tally.has(card.data().cardholder)) {
+            tally.set(card.data().cardholder, {
+              cardIds: [],
+              transactionTotal: 0
+            });
+          }
 
-        tally.get(card.data().cardholder).cardIds.push(card.id);
-      });
+          tally.get(card.data().cardholder).cardIds.push(card.id);
+        });
 
-      // For each cardholder's card, in the tally...
-      // ...get each non-archived transaction...
-      // ...tally it to their entry in the map
-      for (const cardholder of tally) {
-        for (const cardId of cardholder[1].cardIds) {
-          const activeTransactionsQuery = cardsCollection
-            .doc(cardId)
-            .collection('transactions')
-            .where('archived', '==', false);
-
-          const transactionsQueryResults = await t.get(activeTransactionsQuery);
-
-          transactionsQueryResults.forEach(transaction => {
-            cardholder[1].transactionTotal += transaction.data().amount;
-          });
-        }
-      }
-
-      // Check for even transaction totals
-      const allTransactionTotals = [];
-
-      tally.forEach(cardholder => {
-        allTransactionTotals.push(cardholder.transactionTotal);
-      });
-
-      // TODO: If the difference is also < or > 0.01, archive all transactions
-      // If all transactions are even...
-      if (allTransactionTotals.every((val, i, arr) => val === arr[0])) {
-        // Collect an array of active transactions [{ transactionId: 'ABC123XYZ', cardId: 1234 }]
-        activeTransactions = [];
-
+        // For each cardholder's card, in the tally...
+        // ...get each non-archived transaction...
+        // ...tally it to their entry in the map
         for (const cardholder of tally) {
           for (const cardId of cardholder[1].cardIds) {
             const activeTransactionsQuery = cardsCollection
@@ -464,32 +445,63 @@ app.post('/transactions', [cors(CORS_POST), verifyAuth], async (req, res) => {
             );
 
             transactionsQueryResults.forEach(transaction => {
-              activeTransactions.push({
-                transactionId: transaction.id,
-                cardId: cardId
-              });
+              cardholder[1].transactionTotal += transaction.data().amount;
             });
           }
         }
 
-        // Update the DB for each transaction in activeTransactions array
-        for (const transaction of activeTransactions) {
-          const transactionRef = cardsCollection
-            .doc(transaction.cardId)
-            .collection('transactions')
-            .doc(transaction.transactionId);
+        // Check for even transaction totals
+        const allTransactionTotals = [];
 
-          await t.update(transactionRef, { archived: true });
+        tally.forEach(cardholder => {
+          allTransactionTotals.push(cardholder.transactionTotal);
+        });
+
+        // TODO: If the difference is also < or > 0.01, archive all transactions
+        // If all transactions are even...
+        if (allTransactionTotals.every((val, i, arr) => val === arr[0])) {
+          // Collect an array of active transactions [{ transactionId: 'ABC123XYZ', cardId: 1234 }]
+          activeTransactions = [];
+
+          for (const cardholder of tally) {
+            for (const cardId of cardholder[1].cardIds) {
+              const activeTransactionsQuery = cardsCollection
+                .doc(cardId)
+                .collection('transactions')
+                .where('archived', '==', false);
+
+              const transactionsQueryResults = await t.get(
+                activeTransactionsQuery
+              );
+
+              transactionsQueryResults.forEach(transaction => {
+                activeTransactions.push({
+                  transactionId: transaction.id,
+                  cardId: cardId
+                });
+              });
+            }
+          }
+
+          // Update the DB for each transaction in activeTransactions array
+          for (const transaction of activeTransactions) {
+            const transactionRef = cardsCollection
+              .doc(transaction.cardId)
+              .collection('transactions')
+              .doc(transaction.transactionId);
+
+            await t.update(transactionRef, { archived: true });
+          }
         }
-      }
-    });
-  } catch (err) {
-    res.status(500).send({ error: err.message });
-    return;
-  }
+      });
+    } catch (err) {
+      res.status(500).send({ error: err.message });
+      return;
+    }
 
-  res.sendStatus(201);
-});
+    res.sendStatus(201);
+  }
+);
 
 app.listen(process.env.PORT, () => {
   console.log(`Listening on port ${process.env.PORT}`);
