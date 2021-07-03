@@ -127,27 +127,27 @@ app.get('/api/auth', cors(CORS_GET), async (req, res) => {
     return;
   }
 
-  // try {
-  //   const client = new twilio(
-  //     process.env.TWILIO_ACCT_SID,
-  //     process.env.TWILIO_AUTH_TOKEN
-  //   );
+  try {
+    const client = new twilio(
+      process.env.TWILIO_ACCT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
 
-  //   await client.verify
-  //     .services(`${process.env.TWILIO_SERVICE_ID}`)
-  //     .verifications.create({
-  //       to: `${process.env.VERIFICATION_PHONE}`,
-  //       channel: 'sms'
-  //     })
-  //     .catch(err => {
-  //       console.log(err);
-  //       return false;
-  //     });
-  // } catch (err) {
-  //   console.log(err);
-  //   res.sendStatus(500);
-  //   return;
-  // }
+    await client.verify
+      .services(`${process.env.TWILIO_SERVICE_ID}`)
+      .verifications.create({
+        to: `${process.env.VERIFICATION_PHONE}`,
+        channel: 'sms'
+      })
+      .catch(err => {
+        console.log(err);
+        return false;
+      });
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+    return;
+  }
 
   res.sendStatus(200);
 });
@@ -183,34 +183,34 @@ app.post('/api/auth', cors(CORS_POST), async (req, res) => {
     return;
   }
 
-  // try {
-  //   const client = new twilio(
-  //     process.env.TWILIO_ACCT_SID,
-  //     process.env.TWILIO_AUTH_TOKEN
-  //   );
+  try {
+    const client = new twilio(
+      process.env.TWILIO_ACCT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
 
-  //   await client.verify
-  //     .services(`${process.env.TWILIO_SERVICE_ID}`)
-  //     .verificationChecks.create({
-  //       to: `${process.env.VERIFICATION_PHONE}`,
-  //       code: req.body.verificationCode
-  //     })
-  //     .then(verification_check => {
-  //       if (verification_check.status !== 'approved') {
-  //         throw new Error('Authentication Failed');
-  //       }
-  //     })
-  //     .catch(err => {
-  //       console.log(err);
-  //       return false;
-  //     });
-  // } catch (err) {
-  //   await userQuery.update({
-  //     failedAuthAttempts: (user.failedAuthAttempts += 1)
-  //   });
-  //   res.sendStatus(403);
-  //   return;
-  // }
+    await client.verify
+      .services(`${process.env.TWILIO_SERVICE_ID}`)
+      .verificationChecks.create({
+        to: `${process.env.VERIFICATION_PHONE}`,
+        code: req.body.verificationCode
+      })
+      .then(verification_check => {
+        if (verification_check.status !== 'approved') {
+          throw new Error('Authentication Failed');
+        }
+      })
+      .catch(err => {
+        console.log(err);
+        return false;
+      });
+  } catch (err) {
+    await userQuery.update({
+      failedAuthAttempts: (user.failedAuthAttempts += 1)
+    });
+    res.sendStatus(403);
+    return;
+  }
 
   const authToken = jwt.sign(
     {
