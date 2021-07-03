@@ -1,31 +1,8 @@
 const twilio = require('twilio');
 const admin = require('firebase-admin');
-const jwt = require('jsonwebtoken');
 const express = require('express');
 const cors = require('cors');
-
-const CORS_ORIGIN = process.env.CORS_ORIGIN;
-const CORS_GET = {
-  origin: [CORS_ORIGIN],
-  methods: ['GET']
-};
-const CORS_POST = {
-  origin: [CORS_ORIGIN],
-  methods: ['POST']
-};
-
-const app = express();
-
-// HTTPS redirect
-if (process.env.NODE_ENV === 'production') {
-  app.enable('trust proxy');
-  app.use((req, res, next) => {
-    req.secure ? next() : res.redirect('https://' + req.headers.host + req.url);
-  });
-}
-
-app.options(['/auth', '/transactions'], cors(CORS_POST));
-app.use(express.json());
+const jwt = require('jsonwebtoken');
 
 try {
   admin.initializeApp({
@@ -54,13 +31,41 @@ const usersCollection = firestore.collection('users');
 const cardsCollection = firestore.collection('cards');
 const merchantsCollection = firestore.collection('merchants');
 
+const CORS_ORIGIN = process.env.CORS_ORIGIN;
+const CORS_GET = {
+  origin: [CORS_ORIGIN],
+  methods: ['GET']
+};
+const CORS_POST = {
+  origin: [CORS_ORIGIN],
+  methods: ['POST']
+};
+
+const app = express();
+
+// HTTPS redirect
+if (process.env.NODE_ENV === 'production') {
+  app.enable('trust proxy');
+  app.use((req, res, next) => {
+    req.secure ? next() : res.redirect('https://' + req.headers.host + req.url);
+  });
+}
+
+app.options(['/auth', '/transactions'], cors(CORS_POST));
+app.use(express.json());
+
+const verifyAuth = (req, res, next) => {
+  console.log(req.headers.authorization.split(' ')[1]);
+  res.sendStatus(401);
+  //next();
+};
+
 // ***********
 //  GET /auth
 // ***********
 app.get('/auth', cors(CORS_GET), async (req, res) => {
   const userQuery = usersCollection.doc(`${process.env.VERIFICATION_PHONE}`);
   let user;
-  let verificationSid;
 
   try {
     userQueryResults = await userQuery.get();
@@ -86,26 +91,27 @@ app.get('/auth', cors(CORS_GET), async (req, res) => {
     return;
   }
 
-  try {
-    const client = new twilio(
-      process.env.TWILIO_ACCT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
+  // try {
+  //   const client = new twilio(
+  //     process.env.TWILIO_ACCT_SID,
+  //     process.env.TWILIO_AUTH_TOKEN
+  //   );
 
-    await client.verify
-      .services(`${process.env.TWILIO_SERVICE_ID}`)
-      .verifications.create({
-        to: `${process.env.VERIFICATION_PHONE}`,
-        channel: 'sms'
-      })
-      .then(verification => {
-        verificationSid = verification.sid;
-      });
-  } catch (err) {
-    console.log(err);
-    res.sendStatus(500);
-    return;
-  }
+  //   await client.verify
+  //     .services(`${process.env.TWILIO_SERVICE_ID}`)
+  //     .verifications.create({
+  //       to: `${process.env.VERIFICATION_PHONE}`,
+  //       channel: 'sms'
+  //     })
+  //     .catch(err => {
+  //       console.log(err);
+  //       return false;
+  //     });
+  // } catch (err) {
+  //   console.log(err);
+  //   res.sendStatus(500);
+  //   return;
+  // }
 
   res.sendStatus(200);
 });
@@ -141,41 +147,60 @@ app.post('/auth', cors(CORS_POST), async (req, res) => {
     return;
   }
 
-  try {
-    const client = new twilio(
-      process.env.TWILIO_ACCT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
+  // try {
+  //   const client = new twilio(
+  //     process.env.TWILIO_ACCT_SID,
+  //     process.env.TWILIO_AUTH_TOKEN
+  //   );
 
-    await client.verify
-      .services(`${process.env.TWILIO_SERVICE_ID}`)
-      .verificationChecks.create({
-        to: `${process.env.VERIFICATION_PHONE}`,
-        code: req.body.verificationCode
-      })
-      .then(verification_check => {
-        if (verification_check.status !== 'approved') {
-          throw new Error('Authentication Failed');
-        }
-      });
+  //   await client.verify
+  //     .services(`${process.env.TWILIO_SERVICE_ID}`)
+  //     .verificationChecks.create({
+  //       to: `${process.env.VERIFICATION_PHONE}`,
+  //       code: req.body.verificationCode
+  //     })
+  //     .then(verification_check => {
+  //       if (verification_check.status !== 'approved') {
+  //         throw new Error('Authentication Failed');
+  //       }
+  //     })
+  //     .catch(err => {
+  //       console.log(err);
+  //       return false;
+  //     });
+  // } catch (err) {
+  //   await userQuery.update({
+  //     failedAuthAttempts: (user.failedAuthAttempts += 1)
+  //   });
+  //   res.sendStatus(403);
+  //   return;
+  // }
+
+  const token = jwt.sign(
+    {
+      verificationPhone: process.env.VERIFICATION_PHONE
+    },
+    `${process.env.JWT_TOKEN_SECRET}`,
+    {
+      expiresIn: 120
+    }
+  );
+
+  try {
+    await userQuery.update({ jwt: token });
   } catch (err) {
-    await userQuery.update({
-      failedAuthAttempts: (user.failedAuthAttempts += 1)
-    });
-    res.sendStatus(403);
+    console.log(err);
+    res.sendStatus(500);
     return;
   }
 
-  console.log('token created');
-  console.log('token saved');
-  console.log('token returned');
-  res.sendStatus(201);
+  res.send({ token: token });
 });
 
 // ************
 //  GET /cards
 // ************
-app.get('/cards', cors(CORS_GET), async (req, res) => {
+app.get('/cards', [cors(CORS_GET), verifyAuth], async (req, res) => {
   const cards = [];
 
   try {
@@ -195,7 +220,7 @@ app.get('/cards', cors(CORS_GET), async (req, res) => {
 // ****************
 //  GET /merchants
 // ****************
-app.get('/merchants', cors(CORS_GET), async (req, res) => {
+app.get('/merchants', [cors(CORS_GET), verifyAuth], async (req, res) => {
   const merchants = [];
 
   try {
@@ -215,7 +240,7 @@ app.get('/merchants', cors(CORS_GET), async (req, res) => {
 // *******************
 //  GET /transactions
 // *******************
-app.get('/transactions', cors(CORS_GET), async (req, res) => {
+app.get('/transactions', [cors(CORS_GET), verifyAuth], async (req, res) => {
   const transactions = [];
 
   // First, add all cards to transactions
@@ -274,7 +299,7 @@ app.get('/transactions', cors(CORS_GET), async (req, res) => {
 // ********************
 //  POST /transactions
 // ********************
-app.post('/transactions', cors(CORS_POST), async (req, res) => {
+app.post('/transactions', [cors(CORS_POST), verifyAuth], async (req, res) => {
   // TODO: Figure out how to deal with toFixed rounding
   const transaction = {
     merchantName: req.body.merchantName.replace(/\s+/g, ' ').trim(),
