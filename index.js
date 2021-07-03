@@ -56,12 +56,6 @@ app.options(['/api/auth', '/api/transactions'], cors(CORS_POST));
 app.use(express.json());
 
 const verifyAuth = async (req, res, next) => {
-  console.log(req.headers.authorization);
-  // if (!req.headers.authorization) {
-  //   res.sendStatus(401);
-  //   return;
-  // }
-
   const authToken = req.headers.authorization.split(' ')[1];
   let user = null;
   let decodedToken = null;
