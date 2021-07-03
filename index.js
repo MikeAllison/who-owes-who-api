@@ -51,13 +51,49 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+app.options(['/cards', '/merchants'], cors(CORS_GET));
 app.options(['/auth', '/transactions'], cors(CORS_POST));
 app.use(express.json());
 
-const verifyAuth = (req, res, next) => {
-  console.log(req.headers.authorization.split(' ')[1]);
-  res.sendStatus(401);
-  //next();
+const verifyAuth = async (req, res, next) => {
+  const authToken = req.headers.authorization.split(' ')[1];
+  let user = null;
+  let decodedToken = null;
+
+  if (!authToken || authToken === 'null') {
+    res.sendStatus(401);
+    return;
+  }
+
+  try {
+    try {
+      decodedToken = jwt.verify(authToken, process.env.JWT_TOKEN_SECRET);
+    } catch (err) {
+      console.log(err);
+      res.sendStatus(401);
+      return false;
+    }
+
+    const userQuery = usersCollection.doc(`${decodedToken.verificationPhone}`);
+    const userQueryResults = await userQuery.get();
+
+    if (!userQueryResults.exists) {
+      throw new Error('Account Does Not Exist');
+    }
+
+    user = userQueryResults.data();
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(401);
+    return;
+  }
+
+  if (authToken !== user.authToken) {
+    res.sendStatus(401);
+    return;
+  }
+
+  next();
 };
 
 // ***********
@@ -176,7 +212,7 @@ app.post('/auth', cors(CORS_POST), async (req, res) => {
   //   return;
   // }
 
-  const token = jwt.sign(
+  const authToken = jwt.sign(
     {
       verificationPhone: process.env.VERIFICATION_PHONE
     },
@@ -187,14 +223,14 @@ app.post('/auth', cors(CORS_POST), async (req, res) => {
   );
 
   try {
-    await userQuery.update({ jwt: token });
+    await userQuery.update({ authToken: authToken });
   } catch (err) {
     console.log(err);
     res.sendStatus(500);
     return;
   }
 
-  res.send({ token: token });
+  res.send({ authToken: authToken });
 });
 
 // ************
