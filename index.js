@@ -220,7 +220,7 @@ app.post('/api/auth', cors(CORS_POST), async (req, res) => {
     },
     `${process.env.JWT_TOKEN_SECRET}`,
     {
-      expiresIn: 300
+      expiresIn: 3600
     }
   );
 
@@ -298,21 +298,12 @@ app.get('/api/transactions', [cors(CORS_GET), verifyAuth], async (req, res) => {
   }
 
   // Second, add all transactions to each card in transactions
-  const now = new Date();
-  const [month, day, year] = [now.getMonth(), now.getDate(), now.getFullYear()];
-  // Workaround for 0-based months in JS
-  if (month === 0) {
-    month = 12;
-    year -= 1;
-  }
-  const queryDate = new Date(year, month - 1, day);
-
   try {
     for (const card of transactions) {
       const cardTransactionsQuery = cardsCollection
         .doc(card.cardId)
         .collection('transactions')
-        .where('enteredDate', '>=', queryDate);
+        .where('archived', '==', false);
 
       const transactionsQueryResults = await cardTransactionsQuery.get();
 
