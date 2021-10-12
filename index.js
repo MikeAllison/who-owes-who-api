@@ -242,7 +242,9 @@ app.get('/api/cards', [cors(CORS_GET), verifyAuth], async (req, res) => {
   const cards = [];
 
   try {
-    const cardsQueryResults = await cardsCollection.get();
+    const cardsQueryResults = await cardsCollection
+      .where('active', '==', true)
+      .get();
 
     cardsQueryResults.forEach(card => {
       cards.push({ id: card.id, cardholder: card.data().cardholder });
