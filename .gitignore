@@ -1,4 +1,5 @@
 .DS_Store
 .env
+app.yaml
 /creds
 /node_modules
