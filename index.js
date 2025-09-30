@@ -10,7 +10,7 @@ try {
       type: process.env.GOOGLE_ACCOUNT_TYPE,
       project_id: process.env.GOOGLE_PROJECT_ID,
       private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-      private_key: process.env.GOOGLE_PRIVATE_KEY,
+      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
       client_email: process.env.GOOGLE_CLIENT_EMAIL,
       client_id: process.env.GOOGLE_CLIENT_ID,
       auth_uri: process.env.GOOGLE_AUTH_URI,
@@ -136,7 +136,7 @@ app.get('/api/auth', cors(CORS_GET), async (req, res) => {
     await client.verify
       .services(`${process.env.TWILIO_SERVICE_ID}`)
       .verifications.create({
-        to: `${process.env.VERIFICATION_PHONE}`,
+        to: `+${process.env.VERIFICATION_PHONE}`,
         channel: 'sms'
       })
       .catch(err => {
@@ -194,7 +194,7 @@ app.post('/api/auth', cors(CORS_POST), async (req, res) => {
     await client.verify
       .services(`${process.env.TWILIO_SERVICE_ID}`)
       .verificationChecks.create({
-        to: `${process.env.VERIFICATION_PHONE}`,
+        to: `+${process.env.VERIFICATION_PHONE}`,
         code: `${req.body.verificationCode}`
       })
       .then(verification_check => {
@@ -372,7 +372,7 @@ app.post(
         const cardQueryResults = await t.get(cardRef);
 
         if (!cardQueryResults.exists) {
-          throw new Error(`Card ${transaction.cardId} doesn't exist`);
+          throw new Error(`Card ${transaction.cardId} does not exist`);
         }
 
         // Check merchant-table for merchant
