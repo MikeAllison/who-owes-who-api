@@ -133,7 +133,7 @@ app.get("/api/auth", cors(CORS_GET), async (req, res) => {
       process.env.TWILIO_AUTH_TOKEN
     );
 
-    await client.verify
+    await client.verify.v2
       .services(`${process.env.TWILIO_SERVICE_ID}`)
       .verifications.create({
         to: `+${process.env.VERIFICATION_PHONE}`,
@@ -189,9 +189,7 @@ app.post("/api/auth", cors(CORS_POST), async (req, res) => {
       process.env.TWILIO_AUTH_TOKEN
     );
 
-    console.log(`${req.body.verificationCode}`);
-
-    await client.verify
+    await client.verify.v2
       .services(`${process.env.TWILIO_SERVICE_ID}`)
       .verificationChecks.create({
         to: `+${process.env.VERIFICATION_PHONE}`,
