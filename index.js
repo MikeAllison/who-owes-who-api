@@ -247,7 +247,6 @@ app.get("/api/cards", [cors(CORS_GET), verifyAuth], async (req, res) => {
       .get();
 
     cardsQueryResults.forEach((card) => {
-      console.log(card);
       cards.push({
         id: card.id,
         cardholder: card.data().cardholder,
