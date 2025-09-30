@@ -220,7 +220,7 @@ app.post('/api/auth', cors(CORS_POST), async (req, res) => {
     },
     `${process.env.JWT_TOKEN_SECRET}`,
     {
-      expiresIn: 300
+      expiresIn: 600
     }
   );
 
