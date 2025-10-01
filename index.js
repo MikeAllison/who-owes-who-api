@@ -199,12 +199,15 @@ app.post("/api/auth", cors(CORS_POST), async (req, res) => {
         if (verification_check.status !== "approved") {
           throw new Error("Authentication Failed");
         }
+        // TO-DO: RESET FAILED AUTH ATTEMPTS
+        //userQuery.update((user.failedAuthAttempts = 0));
       })
       .catch((err) => {
         console.log(err);
         throw new Error("Authentication Failed");
       });
   } catch (err) {
+    console.log(err);
     await userQuery.update({
       failedAuthAttempts: (user.failedAuthAttempts += 1),
     });
